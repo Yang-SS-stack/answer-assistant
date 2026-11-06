@@ -34,3 +34,8 @@ test('retired failures expire after seven days but active manual review is prese
  const f=await setup({[key]:[row('retry','retry_required',-9*86400000),row('manual','pending',-9*86400000)]});
  await f.repo.stats(paper);assert.equal((await f.repo.detail(paper,'retry')).detailsExpired,true);assert.equal((await f.repo.detail(paper,'manual')).images.length,1);
 });
+test('request retirement succeeds at the 4MB boundary without growing details, then cleanup frees capacity',async()=>{
+ const records=Array.from({length:4},(_,i)=>{const r={...row('at-limit-'+i),review:{status:'uncertain',reason:'复审请求或结果失败：TIMEOUT'},images:[{dataUrl:''}]};r.images[0].dataUrl='x'.repeat(999997-Buffer.byteLength(JSON.stringify(r)));return r;});
+ assert.equal(records.reduce((n,r)=>n+Buffer.byteLength(JSON.stringify(r)),0),3999988);const f=await setup({[key]:records});await f.repo.stats(paper);const size=()=>Object.entries(f.values).filter(([k])=>k.startsWith('aaV4reviewDetail:')).reduce((n,[k,v])=>n+Buffer.byteLength(JSON.stringify(v)),0),before=size();
+ assert.equal((await f.repo.retireRequestFailures(paper)).retired,4);assert.equal(size(),before);const stats=await f.repo.stats(paper);assert.deepEqual(stats.counts,{pending:0,applied:0});assert.equal(stats.cleanable,4);assert.equal((await f.repo.detail(paper,records[0].id)).status,'retry_required');assert.equal((await f.repo.cleanup(paper,{manual:true})).cleared,4);assert.equal(size(),0);await f.repo.putPending(paper,row('new-conflict'));assert.equal((await f.repo.stats(paper)).counts.pending,1);
+});

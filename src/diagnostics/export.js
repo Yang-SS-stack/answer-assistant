@@ -4,7 +4,7 @@ export function diagnosticExport({version,diagnosis,state,checkpoint,paperKey,re
  let previousRun=null;
  if(typeof paperKey==='string'&&courseKey(paperKey)===paperKey&&checkpoint?.url===paperKey&&Array.isArray(checkpoint.results)){
   previousRun={};
-  for(const field of ['state','stage','mode','total','completed','skipped','failed','reviewPending','elapsedMs','draftSaved','canSave','executionScope','persistenceTarget','localDraftSaved','localDraftCount','pageFlow','auditError','error','updatedAt','results'])if(Object.hasOwn(checkpoint,field))previousRun[field]=structuredClone(checkpoint[field]);
+  for(const field of ['state','stage','mode','total','completed','skipped','failed','reviewPending','elapsedMs','draftSaved','canSave','executionScope','persistenceTarget','localDraftSaved','localDraftCount','pageFlow','auditError','error','modelFailure','updatedAt','results'])if(Object.hasOwn(checkpoint,field))previousRun[field]=structuredClone(checkpoint[field]);
  }
  let reviewAttempts;
  if(typeof paperKey==='string'&&courseKey(paperKey)===paperKey&&reviewQueue?.paperKey===paperKey&&Array.isArray(reviewQueue.records)){

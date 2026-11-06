@@ -6,6 +6,7 @@
 - Reviewed branch: 5.0
 - Reviewed commit: 06c2af62d2708f5042b913caf4a3cabb251e66a9
 - Reviewed files: packages/core/src/core/worker/worker.ts; packages/core/src/core/worker/interface.ts; packages/scripts/src/utils/work.ts
+- Additional review for identity diagnostics (4.11.3): packages/core/src/core/answer-wrapper/answer.wrapper.parser.ts; packages/core/src/core/answer-wrapper/interface.ts, at the same pinned commit. These describe answer-bank configuration validation and query/result/error data, not this extension's outer/nested model identity protocol or serialized MV3 review migration. No parser implementation was copied; bounded diagnostic fields and strict identity validation use this extension's existing code.
 - License at that commit: MIT; Copyright (c) 2022 enncy.
 
 The request/resolve/error state separation was consulted as a design reference. This extension does not bundle OCS or copy its worker implementation. OCS's userscript worker and answer-bank architecture is different from this extension's MV3 background transport, independent dual-model decisions, and persisted manual review. Existing code was already being repaired when the OCS-reference instruction was added; relevant upstream code and its exact license were then reviewed. This is attribution for that review, not a claim that OCS implements this extension's dual-model recovery behavior.

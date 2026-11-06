@@ -1,5 +1,5 @@
 import {expectedValue,sameAnswer} from './answers.js';
-import {parseModelResult} from './model-result.js';
+import {parseModelResult,modelFailureDetails} from './model-result.js';
 import {snapshotQuestion,hasReviewDecision} from '../review/records.js';
 import {languageIssue} from './review.js';
 import {createQuestionFlow} from './question-flow.js';
@@ -74,7 +74,7 @@ export class Runner {
    guard();this.state.state='done';this.state.stage='done';
   } catch(error){
    if(signal.aborted){this.state.state='stopped';this.state.stage='wait';}
-   else {controller.abort(error);this.state.state='failed';this.state.failed++;this.state.error=error.message;this.state.stage=stage;log(current||{id:'page',type:'unknown'},'failed',error.message,{...(candidate?{draft:expectedValue(candidate)}:{}),first,second,review});}
+   else {controller.abort(error);this.state.state='failed';this.state.failed++;this.state.error=error.message;this.state.stage=stage;const modelFailure=modelFailureDetails(error);if(modelFailure)this.state.modelFailure=modelFailure;log(current||{id:'page',type:'unknown'},'failed',error.message,{...(typeof current?.number==='string'||typeof current?.number==='number'?{number:current.number}:{}),...(modelFailure?{modelFailure}:{}),...(candidate?{draft:expectedValue(candidate)}:{}),first,second,review});}
   } finally {this.busy=false;this.emit();}
   return this.snapshot();
  }

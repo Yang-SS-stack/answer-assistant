@@ -1,4 +1,4 @@
-import {validateAnswer} from './answers.js';
+import {validateAnswer,assertAnswerIdentity,identityFailureDetails} from './answers.js';
 const TEXT_LIMIT=1000,LIST_LIMIT=12;
 const sourceText=value=>value.trim().slice(0,TEXT_LIMIT);
 function sourceList(value,field,notes){
@@ -8,7 +8,7 @@ function sourceList(value,field,notes){
  if(value.some(item=>typeof item!=='string'))notes.push(field+'说明字段含非文本项，已忽略这些项');
  return value.filter(item=>typeof item==='string').slice(0,LIST_LIMIT).map(sourceText);
 }
-function identity(value,q){if(value.questionId!==q.id||value.type!==q.type)throw Error('ANSWER_IDENTITY：答案题目或题型不匹配');}
+export function modelFailureDetails(error){const detail=identityFailureDetails(error?.modelFailure);if(!detail)return;try{if(error.modelFailure.source)detail.source=sanitizeModelSource(error.modelFailure.source);}catch{}return detail;}
 export function sanitizeModelSource(source){
  if(!source||typeof source!=='object'||Array.isArray(source)||!['deepseek','qwen'].includes(source.provider)||typeof source.model!=='string'||! /^[A-Za-z0-9._-]{1,160}$/.test(source.model)||!['answer','independent','review'].includes(source.role)||typeof source.thinking!=='boolean')throw Error('MODEL_SOURCE：模型来源字段不合法');
  return{provider:source.provider,model:source.model,role:source.role,thinking:source.thinking};
@@ -18,12 +18,12 @@ export function parseModelResult(raw,q){
  if(!value||typeof value!=='object'||Array.isArray(value))throw Error('MODEL_RESULT_SCHEMA：模型结果不是对象');
  if(Object.hasOwn(value,'transport')){
   if(value.transport!==1||typeof value.content!=='string')throw Error('MODEL_RESULT_SCHEMA：传输包装不合法');
-  const source=sanitizeModelSource(value.source),result=parseModelResult(value.content,q);
+  const source=sanitizeModelSource(value.source);let result;try{result=parseModelResult(value.content,q);}catch(error){if(error.modelFailure)error.modelFailure.source=source;throw error;}
   if(result.source)throw Error('MODEL_RESULT_SCHEMA：禁止嵌套传输包装');
   return{...result,source};
  }
  if(Object.hasOwn(value,'protocol')){
-  identity(value,q);
+  assertAnswerIdentity(value,q,'result');
   const keys=['protocol','questionId','type','answer','summary','observations','limitations'];
   if(value.protocol!==1||['protocol','questionId','type','answer'].some(key=>!Object.hasOwn(value,key))||Object.keys(value).some(key=>!keys.includes(key)))throw Error('MODEL_RESULT_SCHEMA：模型结果字段不合法');
   // Explanation fields cannot make an invalid answer valid, or gate a valid one.
@@ -37,7 +37,7 @@ export function parseModelResult(raw,q){
  }
  if(value.status==='uncertain'){
   // The exact historical sentinel is accepted; any supplied identity must be complete and match.
-  if(Object.hasOwn(value,'questionId')||Object.hasOwn(value,'type'))identity(value,q);
+  if(Object.hasOwn(value,'questionId')||Object.hasOwn(value,'type'))assertAnswerIdentity(value,q,'legacy-uncertain');
   if(Object.keys(value).some(key=>!['status','questionId','type'].includes(key)))throw Error('MODEL_RESULT_SCHEMA：不确定结果字段不合法');
   return{status:'uncertain',answer:null,summary:'',observations:[],limitations:['模型未提供依据摘要']};
  }

@@ -36,7 +36,7 @@ export function reviewRepository(storage,{now=Date.now,protectedPaper=()=>false,
  const counts=idx=>({pending:idx.records.filter(isPending).length,applied:idx.records.filter(r=>r.status==='applied').length});
  const cleanable=idx=>idx.records.filter(r=>['applied','retry_required'].includes(r.status)&&r.detailKey).length;
  const publicRow=({detailKey,bytes,...r})=>r;
- async function readDetail(idx,id){const r=idx.records.find(r=>r.id===id);if(!r)return null;if(!r.detailKey)return{...publicRow(r),detailsExpired:true};const full=await get(r.detailKey);if(!full)throw Error('REVIEW_DETAIL_MISSING：详情读取失败，记录已保留');return full;}
+ async function readDetail(idx,id){const r=idx.records.find(r=>r.id===id);if(!r)return null;if(!r.detailKey)return{...publicRow(r),detailsExpired:true};const full=await get(r.detailKey);if(!full)throw Error('REVIEW_DETAIL_MISSING：详情读取失败，记录已保留');if(r.status==='retry_required'&&full.status!=='retry_required')return{...full,status:'retry_required',retryRequired:true,lastError:full.lastError||full.review?.reason||r.lastError,updatedAt:r.updatedAt};return full;}
  async function putIn(p,idx,record,guard=()=>{}){
   const prior=idx.records.find(r=>r.id===record.id),key=detailKey(p,record.id),summary={...reviewSummary(record),detailKey:key,bytes:bytes(record)};
   const rows=idx.records.filter(r=>r.id!==record.id);rows.push(summary);
@@ -45,6 +45,16 @@ export function reviewRepository(storage,{now=Date.now,protectedPaper=()=>false,
   try{guard();await storage.set({[indexKey(p)]:{version:1,revision:crypto.randomUUID(),records:rows}});}catch(error){try{await storage.remove(key);}catch{}throw error;}
   if(prior?.detailKey)try{await storage.remove(prior.detailKey);}catch{}return record;
  }
+ const failureCandidate=r=>isPending(r)&&isFailedReviewRequest({...r,review:{...r.review,status:r.review?.status??'uncertain'}});
+ async function retireIn(p,idx,{guard=()=>{},questionId}={}){
+  let retired=0;for(const row of idx.records.filter(r=>failureCandidate(r)&&(questionId===undefined||(r.questionId||r.id)===questionId))){
+   guard();const record=await readDetail(idx,row.id);guard();if(!record||!isPending(record)||!isFailedReviewRequest(record))continue;
+   // Retirement is an index-only commit: retain immutable evidence without
+   // needing extra detail quota merely to make a full queue cleanable.
+   const retiredRow={...row,status:'retry_required',lastError:short(record.lastError||record.review.reason),updatedAt:now()};
+   const next={...idx,revision:crypto.randomUUID(),records:idx.records.map(r=>r.id===row.id?retiredRow:r)};guard();await storage.set({[indexKey(p)]:next});idx=next;retired++;
+  }return{index:idx,retired};
+ }
  return{
   list:(p,{status='pending',page=1}={})=>exclusive(p,async()=>{const idx=(await expire(p,await index(p))).index;const rows=idx.records.filter(r=>status==='applied'?r.status==='applied':isPending(r)).reverse().sort((a,b)=>(b.updatedAt||0)-(a.updatedAt||0));page=Number.isInteger(page)&&page>0?page:1;return{records:rows.slice((page-1)*20,page*20).map(publicRow),total:rows.length,page,pageSize:20,cleanable:cleanable(idx),counts:counts(idx)};}),
   stats:p=>exclusive(p,async()=>{const idx=(await expire(p,await index(p))).index;return{cleanable:cleanable(idx),counts:counts(idx),total:idx.records.length,revision:idx.revision||null};}),
@@ -52,11 +62,11 @@ export function reviewRepository(storage,{now=Date.now,protectedPaper=()=>false,
   pendingFor:(p,questionId)=>exclusive(p,async()=>{const idx=await index(p),rows=idx.records.filter(r=>r.status==='pending'&&(r.questionId||r.id)===questionId);if(rows.length>1)throw Error('REVIEW_PENDING_AMBIGUOUS');return rows.length?readDetail(idx,rows[0].id):null;}),
   exportSummaries:p=>exclusive(p,async()=>{const idx=(await expire(p,await index(p))).index;return{records:idx.records.filter(r=>r.status==='applied').map(publicRow),counts:counts(idx)};}),
   detail:(p,id)=>exclusive(p,async()=>readDetail((await expire(p,await index(p))).index,id)),
-  putPending:(p,r,{guard=()=>{}}={})=>exclusive(p,async()=>{const idx=(await expire(p,await index(p))).index;guard();const questionId=r.question.id,pending=idx.records.find(row=>isPending(row)&&(row.questionId||row.id)===questionId);const id=pending?.id||(idx.records.some(row=>row.id===questionId)?'review:'+JSON.stringify([questionId,crypto.randomUUID()]):questionId);return putIn(p,idx,{...r,id,questionId},guard);}),
+  putPending:(p,r,{guard=()=>{}}={})=>exclusive(p,async()=>{let idx=(await expire(p,await index(p))).index;guard();const questionId=r.question.id;idx=(await retireIn(p,idx,{guard,questionId})).index;guard();const pending=idx.records.find(row=>isPending(row)&&(row.questionId||row.id)===questionId);const id=pending?.id||(idx.records.some(row=>row.id===questionId)?'review:'+JSON.stringify([questionId,crypto.randomUUID()]):questionId);return putIn(p,idx,{...r,id,questionId},guard);}),
   put:(p,r,{guard=()=>{}}={})=>exclusive(p,async()=>{const idx=(await expire(p,await index(p))).index;guard();return putIn(p,idx,r,guard);}),
   change:(p,id,fn)=>exclusive(p,async()=>{const idx=await index(p),record=await readDetail(idx,id);const next=await fn(record);return next?putIn(p,idx,next):null;}),
   recover:p=>exclusive(p,async()=>{if(protectedPaper(p))return;const idx=await index(p);for(const row of idx.records.filter(r=>r.status==='applying')){const record=await readDetail(idx,row.id);await putIn(p,idx,{...record,status:'pending',lastError:'上次确认填写已中断，请检查当前答案；再次确认会重新校验',updatedAt:now()});idx.records=(await get(indexKey(p))).records;}}),
-  retireRequestFailures:p=>exclusive(p,async()=>{if(protectedPaper(p))return{retired:0};let idx=await index(p),retired=0;for(const row of idx.records.filter(r=>isPending(r)&&isFailedReviewRequest(r))){const record=await readDetail(idx,row.id);if(!record||!isPending(record)||!isFailedReviewRequest(record))continue;await putIn(p,idx,{...record,status:'retry_required',retryRequired:true,lastError:record.lastError||record.review.reason,updatedAt:now()});idx=await index(p);retired++;}return{retired};}),
+  retireRequestFailures:p=>exclusive(p,async()=>{if(protectedPaper(p))return{retired:0};const result=await retireIn(p,await index(p));return{retired:result.retired};}),
   cleanup:(p,{manual=false}={})=>exclusive(p,async()=>{const result=await expire(p,await index(p),manual);return{cleared:result.cleared,counts:counts(result.index),protected:protectedPaper(p)};})
  };
 }
