@@ -2,6 +2,7 @@ import {bindCourse,courseForUrl,courseKey,requireCourse} from '../storage/contex
 import {normalizeSettings,PROVIDERS,MODEL_CAPABILITIES,modelCapabilities} from '../storage/settings.js';
 import {completionMessage} from '../core/completion.js';
 import {diagnosticExport} from '../diagnostics/export.js';
+import {createMonitor} from './monitor.js';
 const $=id=>document.getElementById(id);let settings=normalizeSettings(),tabId,diag=null,lastState=null,currentProvider='deepseek',currentConfigRole='answer',busy=false,loaded=false,pendingStart=false,startEpoch=0,currentTabUrl='',lastTaskError=null;
 const labels={idle:'尚未开始',scan:'识别题目',extract:'提取题目',request:'请求模型',capture:'采集整题截图',parse:'解析答案',review:'填写前复核',validate:'填写前校验',fill:'填写答案',verify:'验证页面',save:'保存草稿','save-local':'保存到本机',next:'验证进入下一题',wait:'等待',done:'本页处理结束'};
 const renderedResults=new Map();
@@ -9,7 +10,8 @@ const types={single:'单选',multiple:'多选',judge:'判断',fill:'填空',subj
 let currentView='run',reviewsSignature='',reviewPoll=null,reviewCounts={pending:0,applied:0};
 async function rpc(message){const r=await chrome.runtime.sendMessage(message);if(!r?.ok)throw Error(r?.error||'扩展连接失败');const isState=message.action==='CHECKPOINT'||message.action==='CONTROL'&&message.command==='status';if(!isState&&r.data?.error)throw Error(r.data.error);return r.data;}
 function feedback(message){$('feedback').textContent=message;$('feedback').hidden=!message;}
-function show(view){currentView=view;if(view==='reviews'&&loaded)pollReviews().catch(e=>feedback(e.message));for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-selected',String(b.dataset.view===view));for(const section of document.querySelectorAll('main>section'))section.hidden=section.id!==view;}
+function show(view){currentView=view;if(view==='reviews'&&loaded)pollReviews().catch(e=>feedback(e.message));for(const b of document.querySelectorAll('[data-view]'))b.setAttribute('aria-selected',String(b.dataset.view===view));for(const section of document.querySelectorAll('main>section'))section.hidden=section.id!==view;monitor.setVisible(view==='usage');}
+const monitor=createMonitor({document,chromeApi:chrome,rpc,getTabId:()=>tabId,isBusy:()=>busy||pendingStart,openUsage:()=>show('usage')});
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>show(b.dataset.view));document.querySelectorAll('[data-back]').forEach(b=>b.onclick=()=>show('run'));$('goSettings').onclick=()=>{changeConfigRole($('reviewMode').value==='enhanced'&&settings.providers[settings.provider].apiKey&&!settings.providers.qwen.apiKey?'reviewer':'answer');show('settings');};
 function profileModel(){return currentConfigRole==='reviewer'?settings.reviewer.model:settings.providers[currentProvider].model;}
 function populateProfile(){
@@ -64,4 +66,4 @@ async function refreshReviews(){
 }
 async function poll(){if(!tabId)return;const state=await rpc({action:'CONTROL',tabId,command:'status'});render(state);const message=completionMessage(state);$('completion').hidden=!message;$('completion').textContent=message||'';await pollReviews();}
 async function init(){try{settings=normalizeSettings(await rpc({action:'SETTINGS_GET'}));currentProvider=settings.provider;$('provider').value=currentProvider;populateProfile();for(const id of ['mode','filter','existing','speed','targetMinutes'])$(id).value=settings[id];$('version').textContent='v'+chrome.runtime.getManifest().version;const tabs=await chrome.tabs.query({active:true,currentWindow:true});tabId=tabs[0]?.id;currentTabUrl=tabs[0]?.url||'';populateCourse();updateRangeSummary();loaded=true;$('export').disabled=!Number.isInteger(tabId);await poll();}catch(e){loaded=true;feedback('页面未连接：'+e.message);renderControls();}}
-await init();setInterval(()=>{if(!document.hidden)poll().catch(()=>{busy=false;renderControls();});},1000);
+await init();monitor.start();window.addEventListener('pagehide',()=>monitor.stop(),{once:true});setInterval(()=>{if(!document.hidden)poll().catch(()=>{busy=false;renderControls();});},1000);

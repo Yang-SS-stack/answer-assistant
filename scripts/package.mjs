@@ -1,0 +1,9 @@
+import {readFile,mkdir,writeFile} from 'node:fs/promises';import path from 'node:path';import {fileURLToPath} from 'node:url';import {spawnSync} from 'node:child_process';import {createHash} from 'node:crypto';
+import {buildNativePackage} from './native-package.mjs';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');const manifest=JSON.parse(await readFile(path.join(root,'manifest.json'),'utf8'));
+for(const file of [manifest.background.service_worker,manifest.action.default_popup,...manifest.content_scripts.flatMap(s=>s.js)])await readFile(path.join(root,file));
+buildNativePackage(root);
+const out=path.join(root,'dist');await mkdir(out,{recursive:true});const zip=path.join(out,`answer-assistant-v${manifest.version}.zip`);
+const python="import pathlib,sys,zipfile\nr=pathlib.Path(sys.argv[1]); out=pathlib.Path(sys.argv[2])\nfiles=[r/'manifest.json',r/'README.md',r/'LICENSE',r/'THIRD_PARTY_NOTICES.md',r/'bridge/answer-assistant-quota-bridge.zip']+sorted((r/'src').rglob('*'))\nwith zipfile.ZipFile(out,'w',zipfile.ZIP_DEFLATED) as z:\n for p in files:\n  if p.is_file():\n   assert not p.is_symlink(), 'Linked release source is unsupported'\n   item=zipfile.ZipInfo(p.relative_to(r).as_posix(),(2020,1,1,0,0,0));item.create_system=3;item.external_attr=0o100644<<16\n   z.writestr(item,p.read_bytes(),compress_type=zipfile.ZIP_DEFLATED,compresslevel=9)\nwith zipfile.ZipFile(out) as z:\n assert z.testzip() is None\n assert 'manifest.json' in z.namelist()\n print('Validated package files:',len(z.namelist()))\n";
+const result=spawnSync('py',['-3','-c',python,root,zip],{encoding:'utf8'});if(result.status!==0)throw Error(result.stderr||'Packaging requires Python 3');
+const hash=createHash('sha256').update(await readFile(zip)).digest('hex');await writeFile(zip+'.sha256',hash+'  '+path.basename(zip)+'\n');console.log(result.stdout.trim());console.log(zip);console.log('SHA256',hash);

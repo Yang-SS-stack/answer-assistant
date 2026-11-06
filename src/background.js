@@ -5,10 +5,29 @@ import {selectRole,roleFingerprint} from './providers/roles.js';
 import {reviewStore} from './review/store.js';
 import {draftStore} from './drafts/store.js';
 import {captureRenderedQuestion} from './images/capture-service.js';
+import {monitorService} from './monitoring/service.js';
+import {nativeBridge} from './monitoring/native-bridge.js';
 const requests=new Map(),cancelled=new Map(),taskBindings=new Map();
 chrome.storage.local.setAccessLevel?.({accessLevel:'TRUSTED_CONTEXTS'});
 async function settings(){return normalizeSettings((await chrome.storage.local.get('aaV4settings')).aaV4settings);}
 const operations={active:new Map(),papers:new Map()};
+let monitorLoginOpening=false;
+async function monitorBusy(){
+ if(requests.size||operations.active.size||operations.papers.size)return true;
+ // A waiting runner has no HTTP request. Verify open running checkpoints against
+ // their content runner; stale checkpoints from closed/refreshed tabs do not lock login.
+ const saved=await chrome.storage.local.get(null);
+ for(const [key,checkpoint]of Object.entries(saved))if(/^aaV4checkpoint:\d+$/.test(key)&&checkpoint?.state==='running'){
+  const tabId=Number(key.split(':')[1]);let tab;try{tab=await chrome.tabs.get(tabId);}catch{continue;}
+  if(courseKey(tab.url)!==checkpoint.url)continue;
+  try{const state=await chrome.tabs.sendMessage(tabId,{action:'status'},{frameId:0});if(state?.state==='running')return true;}catch{return true;}
+ }return false;
+}
+const monitor=monitorService({storage:chrome.storage.local,getSettings:settings,bridge:nativeBridge(chrome),
+ nativePermitted:async()=>!!await chrome.permissions?.contains({permissions:['nativeMessaging']}),isBusy:monitorBusy,
+ getTaskId:async tabId=>{if(!Number.isInteger(tabId))return null;const tab=await chrome.tabs.get(tabId),key='aaV4checkpoint:'+tabId,c=(await chrome.storage.local.get(key))[key];return c?.url===courseKey(tab.url)&&typeof c.taskId==='string'&&c.taskId.length<=256?c.taskId:null;},
+ openLogin:async(url,guard)=>{if(await monitorBusy())throw Error('MONITOR_BUSY');guard();await chrome.tabs.create({url});}
+});
 const drafts=draftStore(settings,operations);
 const reviews=reviewStore(settings,{...operations,onApplied:async context=>{
  await drafts.saveReviewed(context);context.guard();context.result.localDraftSaved=true;
@@ -48,17 +67,23 @@ function reclaimTasks(){
 async function handle(m,sender){
  if(!m||typeof m.action!=='string')throw Error('MESSAGE_INVALID');
  if(ui(sender)){
+  if(m.action==='MONITOR_STATUS'||m.action==='MONITOR_REFRESH')return monitor[m.action==='MONITOR_STATUS'?'status':'refresh']({tabId:m.tabId,period:m.period,refreshNative:m.refreshNative===true});
+  if(m.action==='MONITOR_QWEN_ASSOCIATE')return monitor.associate({confirmed:m.confirmed,sessionId:m.sessionId});
+  if(m.action==='MONITOR_QWEN_DISCONNECT')return monitor.disconnect();
+  if(m.action==='MONITOR_QWEN_CONNECT'){if(monitorLoginOpening)throw Error('MONITOR_BUSY');monitorLoginOpening=true;try{return await monitor.connect({tabId:m.tabId,reconnect:m.reconnect===true});}finally{monitorLoginOpening=false;}}
   if(['LOCAL_DRAFT_LIST','LOCAL_DRAFT_STATS','LOCAL_DRAFT_DETAIL','LOCAL_DRAFT_OPEN','LOCAL_DRAFT_RESTORE','LOCAL_DRAFT_STOP'].includes(m.action))return drafts.handle(m);
   if(['REVIEW_LIST','REVIEW_OPEN','REVIEW_APPLY','REVIEW_STOP','REVIEW_STATS','REVIEW_DETAIL','REVIEW_CLEANUP','REVIEW_EXPORT'].includes(m.action))return reviews.handle(m);
   if(m.action==='SETTINGS_GET')return await settings();
   if(m.action==='SETTINGS_SAVE'){
-   const value=normalizeSettings(m.settings);await chrome.storage.local.set({aaV4settings:value});
+   const previous=await settings(),value=normalizeSettings(m.settings);await chrome.storage.local.set({aaV4settings:value});
    reclaimTasks();for(const [key,binding]of taskBindings){const error=bindingError(binding,value);if(error)invalidateTask(key,binding,error);}
+   try{await monitor.settingsChanged(previous,value);}catch{/* Monitoring cannot fail a normal settings save. */}
    return{saved:true};
   }
   if(m.action==='CONTROL'){
    if(!Number.isInteger(m.tabId))throw Error('TAB_REQUIRED');
    if(!['status','diagnose','start','stop'].includes(m.command))throw Error('COMMAND_INVALID');
+   if(m.command==='start'&&monitorLoginOpening)throw Error('MONITOR_BUSY：正在打开官网授权，请稍后开始');
    if(m.command==='stop'){reviews.cancel(m.tabId);drafts.cancel(m.tabId);}
    return await chrome.tabs.sendMessage(m.tabId,{action:m.command},{frameId:0});
   }
@@ -145,7 +170,8 @@ async function handle(m,sender){
    if(!taskBindings.has(key))taskBindings.set(key,{token:crypto.randomUUID(),url:entry.url,context,fingerprint:taskFingerprint(s),lastSeen:Date.now()});
    const taskToken=taskBindings.get(key).token;
    await validateCapturedTab(key,taskBindings.get(key));controller.signal.throwIfAborted();
-   const result=await callModel(selected.profile,m.question,{signal:controller.signal,context,purpose:entry.purpose,candidate:m.purpose==='review'?m.candidate:undefined});
+   const meta={...selected.source,apiKey:selected.profile.apiKey,taskId:m.taskId,requestId:m.requestId};
+   const result=await callModel(selected.profile,m.question,{signal:controller.signal,context,purpose:entry.purpose,candidate:m.purpose==='review'?m.candidate:undefined,observeAttempt:event=>monitor.observeAttempt(meta,event)});
    controller.signal.throwIfAborted();const latest=await settings();controller.signal.throwIfAborted();
    await validateCapturedTab(key,validateTask(key,latest,sender.url,taskToken));controller.signal.throwIfAborted();
    return m.includeSource===true?{transport:1,content:result,source:selected.source,taskToken}:result;

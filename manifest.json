@@ -1,12 +1,13 @@
 {
   "manifest_version": 3,
   "name": "自动答题 v4 · Edge 测试版",
-  "version": "4.11.3",
+  "version": "4.12.0",
   "description": "逐题识别、双模型复核与页面验证。始终不自动提交。",
   "permissions": [
     "storage",
     "activeTab"
   ],
+  "optional_permissions": ["nativeMessaging"],
   "host_permissions": [
     "https://www.yuketang.cn/*",
     "https://examination.xuetangx.com/*",

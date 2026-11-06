@@ -102,3 +102,24 @@ textarea{font:inherit;width:100%;padding:8px;border:1px solid #b7c4cc;border-rad
 .local-draft-panel{background:var(--surface);border-radius:5px;padding:10px 12px;margin:12px 0}.local-draft-panel>div{display:flex;align-items:center;justify-content:space-between;gap:8px}.local-draft-panel strong{font-size:12px}.local-draft-panel strong span{font-weight:400;margin-left:8px}.local-draft-panel p{margin:5px 0 0;font-size:11px;color:var(--muted)}.local-draft-panel .link{width:auto;padding:0;font-size:12px}
 
 .local-draft-panel .link{border:0;background:transparent;color:var(--accent);min-height:30px}
+
+/* Approved usage-preview-v2: compact rules, plain data and the existing teal palette. */
+nav{padding:0 10px}nav button{font-size:12px}
+.monitor-summary{flex:none;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 18px;background:var(--surface);border-bottom:1px solid var(--line);font-size:12px;line-height:1.65}
+.monitor-summary>div{min-width:0;overflow-wrap:anywhere}.monitor-summary b{font-weight:600;font-variant-numeric:tabular-nums}.monitor-summary button{flex:none}
+.monitor-link{border:0;background:transparent;color:var(--accent);text-decoration:none;font-size:12px;padding:3px 0;min-height:30px;cursor:pointer}
+.monitor-link:hover:not(:disabled){background:transparent;text-decoration:underline;text-underline-offset:3px}
+#usage{display:flex;flex-direction:column;overflow:hidden;padding:0}
+.monitor-scroll{flex:1;min-height:0;overflow-y:auto;overflow-x:hidden;padding:12px 18px;scrollbar-width:thin;scrollbar-color:#a8b9bf var(--surface)}
+.monitor-heading{display:flex;justify-content:space-between;align-items:center;gap:8px}.monitor-heading h2,.monitor-heading h3{margin:0}.monitor-heading>.hint{flex:none;font-size:11px}
+#monitorRefresh{font-size:12px;padding:5px 10px}.monitor-heading>h2{min-width:0}
+.monitor-provider{padding:13px 0;border-bottom:1px solid var(--line)}.monitor-provider h3{font-size:14px;margin:0 0 6px}.monitor-provider h3 .muted{font-weight:400;margin-left:4px}
+.monitor-money-row{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-top:4px}.monitor-money{font-size:22px;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.monitor-money-row+.monitor-money-row{margin-top:10px}
+.monitor-breakdown{display:flex;justify-content:space-between;gap:10px;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.monitor-placeholder{font-size:14px;font-weight:600;color:var(--muted);margin:5px 0}
+#qwenModels{font-variant-numeric:tabular-nums}.monitor-quota-row{margin:8px 0 12px}.monitor-quota-row:last-child{margin-bottom:4px}.monitor-quota-value{font-size:15px;font-weight:600}.monitor-quota-value span{font-size:12px;font-weight:400;color:var(--muted)}.monitor-model{display:block;font-size:12px;color:var(--muted);overflow-wrap:anywhere;margin-top:2px}
+#deepseekUpdated,#qwenUpdated{margin:5px 0 0;overflow-wrap:anywhere}#qwenStatus{margin:4px 0}#qwenManage{margin-top:2px}
+.monitor-ledger{padding-top:13px}.monitor-period{display:flex;gap:18px;margin:5px 0 9px}.monitor-period button{border:0;border-radius:0;border-bottom:2px solid transparent;background:transparent;padding:4px 0;min-height:32px;font-size:12px}.monitor-period button[aria-pressed=true]{border-bottom-color:var(--accent);color:var(--accent);font-weight:600}
+.monitor-table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:12px;font-variant-numeric:tabular-nums}.monitor-table th{color:var(--muted);font-weight:400;text-align:right;padding:0 0 7px}.monitor-table td{vertical-align:top;text-align:right;border-top:1px solid var(--line);padding:7px 0;overflow-wrap:anywhere}.monitor-table th:first-child,.monitor-table td:first-child{text-align:left;width:44%;padding-right:8px}
+#usageUnconfirmed,#usageIncomplete{font-size:12px;margin-top:8px}.monitor-footnote{flex:none;border-top:1px solid var(--line);padding:9px 18px;color:var(--muted);font-size:12px;background:#fff}
+#qwenConnection{margin-top:12px}#qwenConnection>h3{font-size:16px}.monitor-step{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}.monitor-step h4{font-size:13px;margin:0 0 6px}.monitor-actions{display:flex;gap:8px;flex-wrap:wrap}.monitor-actions button,#qwenAssociate{font-size:12px}.monitor-command{display:block;background:var(--surface);padding:7px 9px;font:11px/1.6 Consolas,monospace;overflow-wrap:anywhere;user-select:all}.monitor-download{display:inline-block;border:1px solid #b7ced0;border-radius:4px;padding:6px 9px;min-height:36px;color:var(--accent);font-size:12px;text-decoration:none}.monitor-download:hover{background:#eaf1f1}.monitor-step .check{font-size:12px;color:var(--ink);margin:10px 0}

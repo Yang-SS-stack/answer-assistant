@@ -13,7 +13,7 @@ async function fixture(t){
  const originalChrome=globalThis.chrome,originalFetch=globalThis.fetch;let listener,release,started,taskToken,bootstrap=false;
  let stored=bindCourse(normalizeSettings({reviewMode:'enhanced',providers:{deepseek:{apiKey:'synthetic-not-a-key'},qwen:{apiKey:'synthetic-review-not-a-key'}}}),url,course);
  const ready=new Promise(resolve=>started=resolve);let requestSignal;
- globalThis.chrome={runtime:{id:'synthetic',getURL:path=>'chrome-extension://synthetic/'+path,onMessage:{addListener(fn){listener=fn;}}},storage:{local:{setAccessLevel(){},get:async()=>({aaV4settings:structuredClone(stored)}),set:async data=>{stored=structuredClone(data.aaV4settings);}}},tabs:{onRemoved:{addListener(){}}}};
+ const extras={};globalThis.chrome={runtime:{id:'synthetic',getURL:path=>'chrome-extension://synthetic/'+path,onMessage:{addListener(fn){listener=fn;}}},storage:{local:{setAccessLevel(){},get:async()=>({...structuredClone(extras),aaV4settings:structuredClone(stored)}),set:async data=>{Object.assign(extras,structuredClone(data));if(Object.hasOwn(data,'aaV4settings'))stored=structuredClone(data.aaV4settings);}}},tabs:{onRemoved:{addListener(){}}}};
  globalThis.fetch=async(endpoint,options)=>{if(!bootstrap){requestSignal=options.signal;started();await new Promise(resolve=>release=resolve);}return{ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'synthetic-response'}}]})};};
  await import('../src/background.js?context-test='+(++instance));
  t.after(()=>{release?.();globalThis.chrome=originalChrome;globalThis.fetch=originalFetch;});

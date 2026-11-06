@@ -35,7 +35,7 @@ test('Qwen emits explicit thinking with JSON while DeepSeek has no Qwen-only fie
 let instance=0;
 async function fixture(t,{pause=false}={}){
  const originalChrome=globalThis.chrome,originalFetch=globalThis.fetch;let listener,stored=base(),started,release,taskToken,bootstrap=false;let ready=new Promise(r=>started=r);const calls=[];
- globalThis.chrome={runtime:{id:'synthetic',getURL:p=>'chrome-extension://synthetic/'+p,onMessage:{addListener(fn){listener=fn;}}},storage:{local:{setAccessLevel(){},get:async()=>({aaV4settings:structuredClone(stored)}),set:async data=>{stored=structuredClone(data.aaV4settings);}}},tabs:{onRemoved:{addListener(){}}}};
+ const extras={};globalThis.chrome={runtime:{id:'synthetic',getURL:p=>'chrome-extension://synthetic/'+p,onMessage:{addListener(fn){listener=fn;}}},storage:{local:{setAccessLevel(){},get:async()=>({...structuredClone(extras),aaV4settings:structuredClone(stored)}),set:async data=>{Object.assign(extras,structuredClone(data));if(Object.hasOwn(data,'aaV4settings'))stored=structuredClone(data.aaV4settings);}}},tabs:{onRemoved:{addListener(){}}}};
  globalThis.fetch=async(endpoint,options)=>{if(!bootstrap){calls.push({endpoint,options,body:JSON.parse(options.body)});started();if(pause)await new Promise(r=>release=r);}return{ok:true,json:async()=>({choices:[{finish_reason:'stop',message:{content:'synthetic-content',reasoning_content:'must-never-leak'}}]})};};
  await import('../src/background.js?dual-test='+(++instance));t.after(()=>{release?.();globalThis.chrome=originalChrome;globalThis.fetch=originalFetch;});
  const page={id:'synthetic',url,tab:{id:1},frameId:0,documentId:'doc'},ui={id:'synthetic',url:'chrome-extension://synthetic/src/ui/popup.html'};
