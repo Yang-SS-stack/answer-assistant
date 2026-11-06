@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>答题工作台 · 自动答题 v4</title><link rel="stylesheet" href="review.css"></head>
+<body>
+<header><div class="brand"><h1>答题工作台</h1><span id="course" class="muted"></span></div><div class="header-actions"><button id="cleanup" type="button">清理历史详情</button><span id="queueCount"></span><button id="refresh" type="button">刷新队列</button></div></header>
+<div id="cleanupNotice" class="cleanup-notice" hidden><p>清理已处理题及旧请求失败记录的图片与模型详情，保留状态摘要。待处理、正在填写和人工填写失败记录不受影响。</p><button id="confirmCleanup" type="button">确认清理</button><button id="cancelCleanup" type="button">取消</button></div>
+<div class="workspace"><aside aria-label="题目队列"><h2>题目队列</h2><div class="queue-tabs" role="tablist" aria-label="处理状态"><button id="pendingTab" role="tab" aria-selected="true">待处理 0</button><button id="appliedTab" role="tab" aria-selected="false">已处理 0</button><button id="draftTab" role="tab" aria-selected="false">本机草稿 0</button></div><div id="queue"></div><div class="pagination"><button id="previousPage" type="button" disabled>上一页</button><span id="pageLabel">1 / 1</span><button id="nextPage" type="button" disabled>下一页</button></div><p id="source" class="muted source"></p></aside>
+<main><p id="loading" role="status">正在读取复审队列…</p><p id="state" role="status" aria-live="polite"></p><p id="empty" hidden>没有待处理的题目。</p><div id="detail" hidden>
+<div class="title-row"><h2 id="questionTitle"></h2><span id="recordStatus" class="status-tag"></span></div>
+<div id="localDraftNotice" class="local-draft-notice" hidden>本机草稿用于保留与恢复答案。平台保存未确认；不会自动提交试卷。</div><div id="localDraftDetail" hidden></div><section id="historySummary" class="history-summary" hidden></section>
+<div id="reviewGrid" class="review-grid"><section class="original" aria-labelledby="originalTitle"><h3 id="originalTitle">原题与图片</h3><div id="stem" class="copy"></div><div id="images"></div><div id="originalOptions"></div><div class="old-answer"><h4>填写前原答案</h4><p id="oldAnswer" class="copy"></p></div></section>
+<div class="comparison"><div class="answer-columns"><section id="firstResult" class="model-result" aria-label="首次作答"></section><section id="secondResult" class="model-result" aria-label="独立复答"></section></div>
+<section class="dispute" aria-labelledby="disputeTitle"><h3 id="disputeTitle">争议焦点</h3><div id="issues"></div><p class="disclaimer">模型判断未经标准答案确认，请结合原题与课程材料核对。</p></section>
+<section id="editing" class="editing" aria-labelledby="editTitle"><h3 id="editTitle">也可手动选择或编辑</h3><div id="editor"></div><p id="validation" class="muted" aria-live="polite">请选择答案</p></section></div></div>
+</div></main></div>
+<footer><p id="footerHint">确认后：填写 → 页面验证 → 暂存草稿；不会提交作业</p><div class="footer-actions"><button id="exportSummary" type="button" hidden>导出结果摘要</button><button id="keepPending" type="button" disabled>保留待复审</button><button id="stop" type="button" hidden>停止填写</button><button id="restoreDraft" class="primary" type="button" hidden disabled>恢复到当前题</button><button id="confirm" class="primary" type="button" disabled>确认选择并填写</button></div></footer>
+<dialog id="imageDialog" aria-labelledby="imageTitle"><div class="image-toolbar"><h2 id="imageTitle">题目图片</h2><button id="zoomOut" type="button" aria-label="缩小图片">−</button><span id="zoomLabel">100%</span><button id="zoomIn" type="button" aria-label="放大图片">+</button><button id="closeImage" type="button">关闭图片</button></div><div class="image-scroll"><img id="largeImage" alt="题目图片放大视图"></div></dialog>
+<script type="module" src="review.js"></script>
+</body></html>

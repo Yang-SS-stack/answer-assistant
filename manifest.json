@@ -1,0 +1,73 @@
+{
+  "manifest_version": 3,
+  "name": "自动答题 v4 · Edge 测试版",
+  "version": "4.11.2",
+  "description": "逐题识别、双模型复核与页面验证。始终不自动提交。",
+  "permissions": [
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "https://www.yuketang.cn/*",
+    "https://examination.xuetangx.com/*",
+    "https://mooc1.chaoxing.com/*",
+    "https://api.deepseek.com/*",
+    "https://dashscope.aliyuncs.com/*",
+    "https://hike-teaching-center.polymas.com/exam-hub/*/stu/answer-homework*"
+  ],
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_popup": "src/ui/popup.html",
+    "default_title": "自动答题 v4"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://examination.xuetangx.com/exam/*"
+      ],
+      "js": [
+        "src/platforms/yuketang/editor-main.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://mooc1.chaoxing.com/mooc-ans/mooc2/work/dowork*"
+      ],
+      "js": [
+        "src/platforms/chaoxing/editor-main.js"
+      ],
+      "world": "MAIN",
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.yuketang.cn/*",
+        "https://examination.xuetangx.com/*",
+        "https://mooc1.chaoxing.com/mooc-ans/mooc2/work/dowork*",
+        "https://hike-teaching-center.polymas.com/exam-hub/*/stu/answer-homework*"
+      ],
+      "js": [
+        "src/content/loader.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "src/*"
+      ],
+      "matches": [
+        "https://www.yuketang.cn/*",
+        "https://examination.xuetangx.com/*",
+        "https://mooc1.chaoxing.com/*",
+        "https://hike-teaching-center.polymas.com/*"
+      ]
+    }
+  ]
+}

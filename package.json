@@ -1,0 +1,13 @@
+{
+  "name": "answer-assistant",
+  "version": "4.11.2",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test tests/*.test.mjs"
+  }
+}
